@@ -14,6 +14,8 @@ import multiprocessing as mp
 import os
 import scipy.stats
 import time
+import glob
+import tqdm
 
 # My imports
 import common
@@ -201,7 +203,7 @@ def save_image(dir_path, file_name, im,
     cv2.imwrite(fpath, im.astype(np.uint8))
 
 
-def worker(gen_count, fg_list, bg_list, args, max_ninst=3):
+def worker(arg, max_ninst=3):
     """
     @brief Forkable main.
     @param[in]  gen_count  Index of the image to generate.
@@ -210,30 +212,46 @@ def worker(gen_count, fg_list, bg_list, args, max_ninst=3):
     @param[in]  args       Command line arguments.
     @returns nothing.
     """
-    # Give each subprocess a different seed so they do not generate the same images
-    # random.seed(gen_count)
-    np.random.seed(gen_count)
+    gen_count, fg_list, bg_list, args = arg
+    seed = gen_count
 
-    # Create synthetic image generator
-    im_gen = image_generator.ImageGenerator(
-        bg_list, fg_list, bg_aug=args.bg_aug,
-        fg_aug=args.fg_aug, blend_aug=args.blend_aug)
+    finished = False
 
-    # Generate a synthetic image blended with different methods
-    fname = ("%012d" % gen_count)
-    blended_images = im_gen.generate_image(args.blend_modes, width=args.width)
-    for mode in blended_images:
-        im, mask = blended_images[mode]
-        save_image(args.output_dir, fname + '_' + mode + '.jpg', im)
-        save_image(
-            args.output_dir,
-            fname +
-            '_' +
-            mode +
-            args.gt_suffix +
-            '.png',
-            mask)
-        common.writeln_info('Image ' + fname + ' (' + mode + ')' + ' saved.')
+    count = 0
+
+    while not finished:
+        try:
+            # Give each subprocess a different seed so they do not generate the same images
+            # random.seed(gen_count)
+            np.random.seed(gen_count + int(time.time()))
+
+            # Create synthetic image generator
+            im_gen = image_generator.ImageGenerator(
+                bg_list, fg_list, bg_aug=args.bg_aug,
+                fg_aug=args.fg_aug, blend_aug=args.blend_aug)
+
+            # Generate a synthetic image blended with different methods
+            fname = ("%05d" % gen_count)
+            blended_images = im_gen.generate_image(args.blend_modes, width=args.width)
+            for mode in blended_images:
+                im, mask = blended_images[mode]
+                save_image(args.output_dir, fname + '_' + mode + '.jpg', im)
+                save_image(
+                    args.output_dir,
+                    fname +
+                    '_' +
+                    mode +
+                    args.gt_suffix +
+                    '.png',
+                    mask)
+                common.writeln_info('Image ' + fname + ' (' + mode + ')' + ' saved.')
+            finished = True
+        except Exception as e:
+            print(e)
+            finished = False
+            count += 1
+            if count > 5:
+                raise e
 
 
 def main():
@@ -261,9 +279,8 @@ def main():
         gen_count = int(common.get_fname_no_ext(tmp_list[-1])) + 1
 
     # Create lists of foreground and background
-    fg_list = common.listdir_absolute_no_hidden(args.input_fg_dir)
-    fg_list = [x for x in fg_list if not regex.search(x)]
-    bg_list = common.listdir_absolute_no_hidden(args.input_bg_dir)
+    fg_list = glob.glob(f'{args.input_fg_dir}/**/*[!{args.gt_suffix}].png', recursive=True)
+    bg_list = glob.glob(f'{args.input_bg_dir}/**/*.png', recursive=True)
 
     # Do not use multiprocessing module if debug mode is selected
     tic = time.time()
@@ -272,12 +289,19 @@ def main():
         for i in range(args.first_image_id, args.first_image_id + args.num_samples):
             worker(i, fg_list, bg_list, args)
     else:
-        # Generate all images in parallel
-        pool = mp.Pool(args.processes, maxtasksperchild=1)
-        for i in range(args.first_image_id, args.first_image_id + args.num_samples):
-            pool.apply_async(worker, args=(i, fg_list, bg_list, args))
-        pool.close()
-        pool.join()
+
+        worker_args = [(i, fg_list, bg_list, args) for i in range(args.first_image_id, args.first_image_id + args.num_samples)]
+
+        with mp.Pool(10) as pool:
+            for _ in tqdm.tqdm(pool.imap_unordered(worker, worker_args), total=len(worker_args)):
+                pass
+
+        # # Generate all images in parallel
+        # pool = mp.Pool(args.processes, maxtasksperchild=1)
+        # for i in range(args.first_image_id, args.first_image_id + args.num_samples):
+        #     pool.apply_async(worker, args=(i, fg_list, bg_list, args))
+        # pool.close()
+        # pool.join()
     toc = time.time()
     elap = toc - tic
     common.writeln_info(str(args.num_samples) +

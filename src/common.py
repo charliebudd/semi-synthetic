@@ -167,15 +167,7 @@ def listdir_absolute_no_hidden(path):
 #
 # @returns nothing.
 def write_info(msg):
-    sys.stdout.write(
-        '[' +
-        bcolours.OKGREEN +
-     'INFO' +
-     bcolours.ENDC +
-     '] ' +
-     msg)
-    sys.stdout.flush()
-
+    pass
 
 #
 # @brief Writes a message and a '\n' to screen and flushes the buffers.
@@ -184,9 +176,7 @@ def write_info(msg):
 #
 # @returns nothing.
 def writeln_info(msg):
-    sys.stdout.write(
-        '[' + bcolours.OKGREEN + 'INFO' + bcolours.ENDC + '] ' + str(msg) + '\n')
-    sys.stdout.flush()
+    pass
 
 
 #
@@ -196,14 +186,7 @@ def writeln_info(msg):
 #
 # @returns nothing.
 def write_warn(msg):
-    sys.stdout.write(
-        '[' +
-        bcolours.WARNING +
-     'WARN' +
-     bcolours.ENDC +
-     '] ' +
-     msg)
-    sys.stdout.flush()
+    pass
 
 
 #
@@ -213,15 +196,7 @@ def write_warn(msg):
 #
 # @returns nothing.
 def writeln_warn(msg):
-    sys.stdout.write(
-        '[' +
-        bcolours.WARNING +
-     'WARN' +
-     bcolours.ENDC +
-     '] ' +
-     msg +
-     '\n')
-    sys.stdout.flush()
+    pass
 
 
 #
@@ -264,8 +239,7 @@ def writeln_error(msg):
 #
 # @returns nothing.
 def writeln_ok():
-    sys.stdout.write('[' + bcolours.OKGREEN + 'OK' + bcolours.ENDC + "]\n")
-    sys.stdout.flush()
+    pass
 
 
 #
@@ -273,8 +247,7 @@ def writeln_ok():
 #
 # @returns nothing.
 def writeln_fail():
-    sys.stdout.write('[' + bcolours.FAIL + 'FAIL' + bcolours.ENDC + "]\n")
-    sys.stdout.flush()
+    pass
 
 
 #

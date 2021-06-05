@@ -162,11 +162,12 @@ class ToolCC:
 
         # Sanity check: rotation should not change the dimensions of the
         #               image
-        assert(self.im.shape[0] == prev_shape[0])
-        assert(self.im.shape[1] == prev_shape[1])
+        assert(self.im.shape[0] == prev_shape[0], f'{prev_shape} -> {self.im.shape}')
+        assert(self.im.shape[1] == prev_shape[1], f'{prev_shape} -> {self.im.shape}')
 
     @staticmethod
     def get_rotate_bound_centre_matrix(h, w, centre, deg, interp):
+        
         cm_x = centre[0]
         cm_y = centre[1]
 
@@ -1440,7 +1441,7 @@ class AugmentationEngine(object):
                         ], p=1.0),
                         albumentations.OneOf([
                             albumentations.Blur(blur_limit=7, p=1.0),
-                            albumentations.GaussianBlur(blur_limit=7, p=1.0),
+                            albumentations.GaussianBlur(p=1.0),
                             albumentations.MotionBlur(blur_limit=7, p=1.0),
                             albumentations.MedianBlur(blur_limit=7, p=1.0),
                             # albumentations.GlassBlur(sigma=0.7, max_delta=4, iterations=2, mode='fast',
@@ -1872,31 +1873,31 @@ class ImageGenerator:
         @returns an image as a numpy ndarray, shape (h, w, 3).
         '''
         texture_im = None
-        if np.random.binomial(1, p):
-            texture = self.load_bg()
-        else:
-            # Load a foreground
-            fg_path = np.random.choice(self.fg_list)
-            fg_name = common.get_fname_no_ext(fg_path)
-            fg_ext = common.get_ext(fg_path)
-            fg_gt_path = os.path.join(os.path.dirname(fg_path),
-                                      fg_name + self.gt_suffix + self.gt_ext)
-            im = cv2.imread(fg_path)
-            mask = cv2.imread(fg_gt_path, 0)
-            min_x = np.min(np.where(mask)[1]) - tol
-            max_x = np.max(np.where(mask)[1]) + tol
-            min_y = np.min(np.where(mask)[0]) - tol
-            max_y = np.max(np.where(mask)[0]) + tol
-            min_x = max(0, min_x)
-            max_x = min(im.shape[1] - 1, max_x)
-            min_y = max(0, min_y)
-            max_y = min(im.shape[0] - 1, max_y)
-            im[min_y:max_y + 1, min_x:max_x + 1] = [0, 255, 0]
-            mask[min_y:max_y + 1, min_x:max_x + 1] = 255
+        # if np.random.binomial(1, p):
+        texture = self.load_bg()
+        # else:
+        #     # Load a foreground
+        #     fg_path = np.random.choice(self.fg_list)
+        #     fg_name = common.get_fname_no_ext(fg_path)
+        #     fg_ext = common.get_ext(fg_path)
+        #     fg_gt_path = os.path.join(os.path.dirname(fg_path),
+        #                               fg_name + self.gt_suffix + self.gt_ext)
+        #     im = cv2.imread(fg_path)
+        #     mask = cv2.imread(fg_gt_path, 0)
+        #     min_x = np.min(np.where(mask)[1]) - tol
+        #     max_x = np.max(np.where(mask)[1]) + tol
+        #     min_y = np.min(np.where(mask)[0]) - tol
+        #     max_y = np.max(np.where(mask)[0]) + tol
+        #     min_x = max(0, min_x)
+        #     max_x = min(im.shape[1] - 1, max_x)
+        #     min_y = max(0, min_y)
+        #     max_y = min(im.shape[0] - 1, max_y)
+        #     im[min_y:max_y + 1, min_x:max_x + 1] = [0, 255, 0]
+        #     mask[min_y:max_y + 1, min_x:max_x + 1] = 255
 
-            # Inpaint tool with information from green screen
-            texture_im = cv2.inpaint(im, mask, 3, cv2.INPAINT_TELEA)
-            texture = Background(texture_im, 'texture_im')
+        #     # Inpaint tool with information from green screen
+        #     texture_im = cv2.inpaint(im, mask, 3, cv2.INPAINT_TELEA)
+        #     texture = Background(texture_im, 'texture_im')
 
         return texture
 
