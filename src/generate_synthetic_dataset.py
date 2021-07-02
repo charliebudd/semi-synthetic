@@ -194,7 +194,7 @@ def convert_args_to_correct_datatypes(args):
 
 
 def save_image(dir_path, file_name, im,
-               flags=[int(cv2.IMWRITE_JPEG_QUALITY), 95]):
+               flags=[int(cv2.IMWRITE_JPEG_QUALITY), 100]):
     """
     @brief Function to save an image to the output directory.
            Typically for debugging purposes.

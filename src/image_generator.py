@@ -1383,13 +1383,14 @@ class AugmentationEngine(object):
             # Foreground augmentation configuration
             elif 'albu_fg' in albumentations_dic:
                 albu_fg = albumentations.Compose([
-                    # albumentations.OneOf([
+                    albumentations.OneOf([
+                        albumentations.JpegCompression(60, 80)
                         # albumentations.ToGray(p=1.0),
                         # albumentations.ChannelShuffle(p=1.0),
                         # albumentations.RandomRain(slant_lower=-10, slant_upper=10, drop_length=5,
                         #    drop_width=5, drop_color=(0, 0, 255), blur_value=7,
                         #    brightness_coefficient=0.7, rain_type='drizzle', p=1.0)
-                    #], p=1.0),
+                    ], p=0.3),
                 ], p=albumentations_dic['albu_fg'])
                 augmentation = albu_fg
 
