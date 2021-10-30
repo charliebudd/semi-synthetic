@@ -16,6 +16,7 @@ import scipy.stats
 import time
 import glob
 import tqdm
+import json
 
 # My imports
 import common
@@ -203,6 +204,12 @@ def save_image(dir_path, file_name, im,
     cv2.imwrite(fpath, im.astype(np.uint8))
 
 
+def save_skeletons(dir_path, file_name, skeletons):
+    fpath = os.path.join(dir_path, file_name)
+    with open(fpath, 'w+') as f:
+        json.dump(skeletons, f)
+    
+
 def worker(arg, max_ninst=3):
     """
     @brief Forkable main.
@@ -232,19 +239,14 @@ def worker(arg, max_ninst=3):
 
             # Generate a synthetic image blended with different methods
             fname = ("%05d" % gen_count)
-            blended_images = im_gen.generate_image(args.blend_modes, width=args.width)
+            blended_images, skeletons = im_gen.generate_image(args.blend_modes, width=args.width)
             for mode in blended_images:
                 im, mask = blended_images[mode]
                 save_image(args.output_dir, fname + '_' + mode + '.jpg', im)
-                save_image(
-                    args.output_dir,
-                    fname +
-                    '_' +
-                    mode +
-                    args.gt_suffix +
-                    '.png',
-                    mask)
+                save_image(args.output_dir, fname +'_' + mode + '_seg' + '.png', mask)
                 common.writeln_info('Image ' + fname + ' (' + mode + ')' + ' saved.')
+            save_skeletons(args.output_dir, fname +'_' + mode + '_skel' + '.json', skeletons)
+            
             finished = True
         except Exception as e:
             print(e)
@@ -279,15 +281,16 @@ def main():
         gen_count = int(common.get_fname_no_ext(tmp_list[-1])) + 1
 
     # Create lists of foreground and background
-    fg_list = glob.glob(f'{args.input_fg_dir}/**/*[!{args.gt_suffix}].png', recursive=True)
-    bg_list = glob.glob(f'{args.input_bg_dir}/**/*.png', recursive=True)
+    fg_list = glob.glob(f'{args.input_fg_dir}/**/*[0-9].png', recursive=True)
+    bg_list = glob.glob(f'{args.input_bg_dir}/**/*.jpg', recursive=True)
 
     # Do not use multiprocessing module if debug mode is selected
     tic = time.time()
+    # args.debug = True
     if args.debug:
         # Run data generation sequentially
         for i in range(args.first_image_id, args.first_image_id + args.num_samples):
-            worker(i, fg_list, bg_list, args)
+            worker((i, fg_list, bg_list, args))
     else:
 
         worker_args = [(i, fg_list, bg_list, args) for i in range(args.first_image_id, args.first_image_id + args.num_samples)]

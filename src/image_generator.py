@@ -6,6 +6,7 @@
 
 # import random
 import os
+from PIL import Image
 import cv2
 import numpy as np
 from keras_preprocessing.image import ImageDataGenerator as KerasGenerator
@@ -16,11 +17,14 @@ import skimage.morphology
 import random
 import noise.perlin
 
+import matplotlib.pyplot as plt
+
 # My imports
 import common
 import image
 import blending
 import geometry
+from compute_skeleton import compute_skeleton, crop_skeleton
 
 class ToolCC:
     """
@@ -1715,7 +1719,7 @@ class ImageGenerator:
     """
     @class ImageGenerator generates images of background tissue with tools blended on top.
     """
-    def __init__(self, bg_list, fg_list, gt_suffix='_seg', gt_ext='.png', classes=2,
+    def __init__(self, bg_list, fg_list, gt_suffix='_mask', gt_ext='.png', classes=2,
             class_map={0: 0, 255: 1}, min_ninst=1, max_ninst=3, fg_aug={}, bg_aug={}, blend_aug={}):
         """
         @param[in]  bg_list    List of paths to background images.
@@ -1856,6 +1860,8 @@ class ImageGenerator:
                     and extra_fg.random_crop(min_height, min_width):
                 fgs.append(extra_fg)
 
+        skeletons = [compute_skeleton(fg.seg.raw.copy()) for fg in fgs]
+
         # Blend images with the requested modes
         blend_set = BlendedImageSet(bg, fgs)
         blend_set.add_flying_distractor(self.get_flying_distractor_texture(), self.load_fg(),
@@ -1864,7 +1870,9 @@ class ImageGenerator:
         blend_set.augment(self.blend_aug)
         blended_images = blend_set.blended_images
 
-        return blended_images
+        # skeletons = [crop_skeleton(skeleton, blended_images['laplacian'][1]) for skeleton in skeletons]
+
+        return blended_images, skeletons
 
     def get_flying_distractor_texture(self, p=0.8, tol=10):
         '''
