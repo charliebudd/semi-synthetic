@@ -120,7 +120,6 @@ def compute_skeleton(mask):
         'tags': len(nodes) * ['visible', ]
     }
 
-
 def crop_skeleton(skeleton, mask):
 
     edges = skeleton['edges']
@@ -161,10 +160,6 @@ def crop_skeleton(skeleton, mask):
                     start_index += 1
 
                 if start_index == len(line_points):
-                    print(edges)
-                    print(nodes)
-
-                    print(f"removing {home_node}, {edge_indices[0]}")
                     del(edges[edge_indices[0]])
                     del(nodes[home_node])
                     for edge in edges:
@@ -173,8 +168,6 @@ def crop_skeleton(skeleton, mask):
                         if edge[1] > home_node:
                             edge[1] -= 1
                     done = False
-                    print(edges)
-                    print(nodes)
                     break
                 else:
                     nodes[home_node] = line_points[start_index][::-1]
