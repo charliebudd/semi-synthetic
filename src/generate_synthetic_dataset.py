@@ -219,7 +219,7 @@ def worker(arg, max_ninst=3):
     @param[in]  args       Command line arguments.
     @returns nothing.
     """
-    gen_count, fg_list, bg_list, args = arg
+    gen_count, fg_img_list, fg_seg_list, bg_list, args = arg
     seed = gen_count
 
     finished = False
@@ -234,18 +234,17 @@ def worker(arg, max_ninst=3):
 
             # Create synthetic image generator
             im_gen = image_generator.ImageGenerator(
-                bg_list, fg_list, bg_aug=args.bg_aug,
+                bg_list, fg_img_list, fg_seg_list, bg_aug=args.bg_aug,
                 fg_aug=args.fg_aug, blend_aug=args.blend_aug)
 
             # Generate a synthetic image blended with different methods
-            fname = ("%05d" % gen_count)
+            fname = str(gen_count).zfill(5)
             blended_images, skeletons = im_gen.generate_image(args.blend_modes, width=args.width)
             for mode in blended_images:
                 im, mask = blended_images[mode]
-                save_image(args.output_dir, fname + '_' + mode + '.jpg', im)
-                save_image(args.output_dir, fname +'_' + mode + '_seg' + '.png', mask)
-                common.writeln_info('Image ' + fname + ' (' + mode + ')' + ' saved.')
-            save_skeletons(args.output_dir, fname +'_' + mode + '_skel' + '.json', skeletons)
+                save_image(args.output_dir, f"{fname}_{mode}_img.png", im)
+            save_image(args.output_dir, f"{fname}_seg.png", mask)
+            save_skeletons(args.output_dir, f"{fname}_skl.json", skeletons)
             
             finished = True
         except Exception as e:
@@ -281,19 +280,20 @@ def main():
         gen_count = int(common.get_fname_no_ext(tmp_list[-1])) + 1
 
     # Create lists of foreground and background
-    fg_list = glob.glob(f'{args.input_fg_dir}/**/*[0-9].png', recursive=True)
-    bg_list = glob.glob(f'{args.input_bg_dir}/**/*.jpg', recursive=True)
+    fg_img_list = sorted(glob.glob(f'{args.input_fg_dir}/**/*_img.png', recursive=True))
+    fg_seg_list = sorted(glob.glob(f'{args.input_fg_dir}/**/*_seg.png', recursive=True))
+    bg_list = sorted(glob.glob(f'{args.input_bg_dir}/**/*.png', recursive=True))
 
     # Do not use multiprocessing module if debug mode is selected
     tic = time.time()
-    # args.debug = True
+    args.debug = True
     if args.debug:
         # Run data generation sequentially
         for i in range(args.first_image_id, args.first_image_id + args.num_samples):
-            worker((i, fg_list, bg_list, args))
+            worker((i, fg_img_list, fg_seg_list, bg_list, args))
     else:
 
-        worker_args = [(i, fg_list, bg_list, args) for i in range(args.first_image_id, args.first_image_id + args.num_samples)]
+        worker_args = [(i, fg_img_list, fg_seg_list, bg_list, args) for i in range(args.first_image_id, args.first_image_id + args.num_samples)]
 
         with mp.Pool(10) as pool:
             for _ in tqdm.tqdm(pool.imap_unordered(worker, worker_args), total=len(worker_args)):

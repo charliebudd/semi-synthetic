@@ -4,8 +4,6 @@ from skimage.draw import line
 
 def compute_skeleton(mask):
 
-    print('pre blend:', mask.shape)
-
     num_labels, labels_im = cv.connectedComponents(mask)
     max_label = 1
     max_pixels = 0
@@ -54,8 +52,6 @@ def compute_skeleton(mask):
 
     start = clamp(start)
     end = clamp(end)
-    
-    print('pre blend:', start, end)
 
     def min_dist(p):
         x, y = p
@@ -69,12 +65,11 @@ def compute_skeleton(mask):
 
     return {
         'nodes': [start, end],
-        'edges': [(0, 1)]  
+        'edges': [(0, 1)],
+        'tags': ['visible', 'visible']
     }
 
 def crop_skeleton(skeleton, mask):
-
-    print('post blend:', mask.shape)
 
     new_nodes = []
     new_edges = []
@@ -88,17 +83,17 @@ def crop_skeleton(skeleton, mask):
 
         line_points = list(zip(*line(*start, *end)))
 
-        print(mask.shape)
-        print(start, end)
-
         start_index = 0
         end_index = len(line_points) - 1
 
-        while start_index < end_index and mask[line_points[start_index]] != 0:
+        while start_index < end_index and mask[line_points[start_index]] == 0:
             start_index += 1
         
-        while end_index > start_index and mask[line_points[end_index]] != 0:
+        while end_index > start_index and mask[line_points[end_index]] == 0:
             end_index -= 1
+
+        start = (int(line_points[start_index][0]), int(line_points[start_index][1]))
+        end = (int(line_points[end_index][0]), int(line_points[end_index][1]))
 
         if start_index != end_index:
             new_nodes.append(start)
@@ -107,5 +102,6 @@ def crop_skeleton(skeleton, mask):
     
     return {
         'nodes': new_nodes,
-        'edges': new_edges  
+        'edges': new_edges,
+        'tags': ['visible', 'visible']
     }

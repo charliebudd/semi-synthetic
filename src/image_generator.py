@@ -1719,7 +1719,7 @@ class ImageGenerator:
     """
     @class ImageGenerator generates images of background tissue with tools blended on top.
     """
-    def __init__(self, bg_list, fg_list, gt_suffix='_mask', gt_ext='.png', classes=2,
+    def __init__(self, bg_list, fg_img_list, fg_seg_list, gt_suffix='_mask', gt_ext='.png', classes=2,
             class_map={0: 0, 255: 1}, min_ninst=1, max_ninst=3, fg_aug={}, bg_aug={}, blend_aug={}):
         """
         @param[in]  bg_list    List of paths to background images.
@@ -1732,7 +1732,8 @@ class ImageGenerator:
         @param[in]  blend_aug  Dictionary of augmentations for the blended images.
         """
         self.bg_list = bg_list
-        self.fg_list = fg_list
+        self.fg_img_list = fg_img_list
+        self.fg_seg_list = fg_seg_list
         self.gt_suffix = gt_suffix
         self.gt_ext = gt_ext
         self.classes = classes
@@ -1749,16 +1750,11 @@ class ImageGenerator:
         failed = True
         while failed and attempts > 0:
             # Choose a random file from the list of foregrounds
-            fg_path = np.random.choice(self.fg_list)
-            fg_name = common.get_fname_no_ext(fg_path)
-            fg_ext = common.get_ext(fg_path)
-            fg_gt_path = os.path.join(os.path.dirname(fg_path), fg_name + self.gt_suffix + self.gt_ext)
-
-            # Read image and ground truth segmentation
-            frame = image.CaffeinatedImage.from_file(fg_path, fg_name + fg_ext)
-            seg = image.CaffeinatedLabel.from_file(fg_gt_path, fg_name + self.gt_suffix + fg_ext,
-                    self.classes, self.class_map)
-
+            index = np.random.randint(0, len(self.fg_img_list))
+            img_path, seg_path = self.fg_img_list[index], self.fg_seg_list[index]
+            frame = image.CaffeinatedImage.from_file(img_path, os.path.basename(img_path))
+            seg = image.CaffeinatedLabel.from_file(seg_path, os.path.basename(seg_path), self.classes, self.class_map)
+        
             # Just in case the foreground image is BGRA, we get just the BGR part
             frame._raw_frame = frame._raw_frame[:,:, :3]
 
@@ -1867,10 +1863,59 @@ class ImageGenerator:
         blend_set.add_flying_distractor(self.get_flying_distractor_texture(), self.load_fg(),
                                         self.fg_aug)
         blend_set.blend(blend_modes)
-        blend_set.augment(self.blend_aug)
-        blended_images = blend_set.blended_images
+        #####################
+        # This line breaks the skeletons so doing custom fov border
+        # blend_set.augment(self.blend_aug) # PROBLEM HERE
 
-        # skeletons = [crop_skeleton(skeleton, blended_images['laplacian'][1]) for skeleton in skeletons]
+        size = blend_set.fgs[0].shape
+
+        rand = np.random.rand()
+
+        if rand < 0.333:
+            # rect border
+            tlx = np.random.randint(10, 50)
+            tly = np.random.randint(10, 50)
+            brx = np.random.randint(10, 50)
+            bry = np.random.randint(10, 50)
+
+            border = np.zeros_like(blend_set.fgs[0].seg.raw)
+            border[tlx:-brx, tly:-bry] = 1
+
+            blured_border = cv2.GaussianBlur(border.astype(np.float32), ksize=[5, 5], sigmaX=3, sigmaY=3)
+
+            for mode in blend_set.blended_images:
+                im, mask = blend_set.blended_images[mode]
+                im = (im * np.stack(3 * [blured_border,], -1)).astype(np.uint8)
+                mask = (mask * border).astype(np.uint8)
+                blend_set.blended_images[mode] = im, mask
+
+            skeletons = [crop_skeleton(skeleton, border) for skeleton in skeletons]
+
+        elif rand < 0.666:
+            # circle border
+            x = np.random.randint(size[0] * 0.47, size[0] * 0.53)
+            y = np.random.randint(size[1] * 0.47, size[1] * 0.53)
+            r = np.random.randint(max(size[0], size[1]) * 0.3, max(size[0], size[1]) * 0.5)
+
+            border = np.zeros_like(blend_set.fgs[0].seg.raw)
+            border = cv2.circle(border, [y, x], r, 1, thickness=-1)
+
+            blured_border = cv2.GaussianBlur(border.astype(np.float32), ksize=[5, 5], sigmaX=3, sigmaY=3)
+
+            for mode in blend_set.blended_images:
+                im, mask = blend_set.blended_images[mode]
+                im = (im * np.stack(3 * [blured_border,], -1)).astype(np.uint8)
+                mask = (mask * border).astype(np.uint8)
+                blend_set.blended_images[mode] = im, mask
+
+            skeletons = [crop_skeleton(skeleton, border) for skeleton in skeletons]
+        else:
+            # no border
+            pass 
+
+        #####################
+
+        blended_images = blend_set.blended_images
 
         return blended_images, skeletons
 
