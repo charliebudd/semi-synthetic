@@ -286,7 +286,7 @@ def main():
 
     # Do not use multiprocessing module if debug mode is selected
     tic = time.time()
-    args.debug = True
+    # args.debug = True
     if args.debug:
         # Run data generation sequentially
         for i in range(args.first_image_id, args.first_image_id + args.num_samples):
